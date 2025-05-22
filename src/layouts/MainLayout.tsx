@@ -1,7 +1,7 @@
 
 import { ReactNode } from "react";
 import { Header } from "@/components/layout/Header";
-import { AppSidebar, SidebarToggle } from "@/components/layout/Sidebar";
+import { AppSidebar } from "@/components/layout/Sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 interface MainLayoutProps {
@@ -19,7 +19,6 @@ export function MainLayout({ children }: MainLayoutProps) {
             {children}
           </main>
         </div>
-        <SidebarToggle />
       </div>
     </SidebarProvider>
   );
