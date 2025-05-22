@@ -51,6 +51,7 @@ export const InteractiveMap = ({
     // Clear any existing map
     if (map.current) {
       map.current.remove();
+      map.current = null;
     }
     
     setLoading(true);
@@ -139,11 +140,13 @@ export const InteractiveMap = ({
       
       mapInstance.addControl(new SatelliteToggleControl(), 'top-right');
       
-      // Error handling
+      // Error handling - fixed the error.status access
       mapInstance.on('error', (e) => {
         console.error('Mapbox error:', e);
-        if (e.error?.status === 401) {
-          setMapError("Invalid Mapbox token. Please update your token.");
+        // Check for authentication errors without assuming status property exists
+        if (e.error && typeof e.error === 'object') {
+          // Handle authentication errors generically
+          setMapError("Map authentication error. Please update your Mapbox token.");
           setShowTokenInput(true);
         }
       });
@@ -159,8 +162,26 @@ export const InteractiveMap = ({
     initializeMap();
     
     return () => {
+      // Properly cleanup the map to avoid "indoor" property error
       if (map.current) {
-        map.current.remove();
+        try {
+          // First remove any sources that might cause issues on cleanup
+          if (map.current.getSource("poverty-data")) {
+            if (map.current.getLayer("poverty-heat")) {
+              map.current.removeLayer("poverty-heat");
+            }
+            if (map.current.getLayer("poverty-point")) {
+              map.current.removeLayer("poverty-point");
+            }
+            map.current.removeSource("poverty-data");
+          }
+          
+          // Then safely remove the map
+          map.current.remove();
+        } catch (error) {
+          console.error("Error cleaning up map:", error);
+        }
+        map.current = null;
       }
     };
   }, [mapboxToken, center, zoom]);
@@ -357,3 +378,4 @@ export const InteractiveMap = ({
     </div>
   );
 };
+
