@@ -25,7 +25,7 @@ const NotFound = () => {
           Sorry, we couldn't find the page you're looking for. It might have been removed or doesn't exist.
         </p>
         <Button asChild>
-          <a href="/" className="inline-flex items-center">
+          <a href="/" className="flex items-center justify-center">
             <Home className="mr-2 h-4 w-4" />
             Return to Dashboard
           </a>
