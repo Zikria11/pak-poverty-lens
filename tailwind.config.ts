@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,28 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// LumenMap custom colors
+				lumen: {
+					50: '#e6f7ff',
+					100: '#bae3ff',
+					200: '#7cc4fa',
+					300: '#36a3f0',
+					400: '#0b86db',
+					500: '#0069c0',
+					600: '#01509c',
+					700: '#033a77',
+					800: '#032654',
+					900: '#021633',
+				},
+				poverty: {
+					high: '#e53935',    // High poverty - Red
+					medium: '#ffb300',  // Medium poverty - Amber
+					low: '#43a047',     // Low poverty - Green
 				}
+			},
+			fontFamily: {
+				sans: ['Roboto', 'sans-serif'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +106,16 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-slow': {
+					'0%, 100%': { opacity: 1 },
+					'50%': { opacity: 0.8 }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-slow': 'pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite'
 			}
 		}
 	},
