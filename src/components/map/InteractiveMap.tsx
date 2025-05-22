@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { AlertCircle, MapPin } from "lucide-react";
 
 // Default mapbox token
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1IjoibHVtZW5tYXAiLCJhIjoiY2pqcjJodmN5YXozMDN2bnZoNDRoaTJrMiJ9.2R8CSUqL8b5HI7SiZBVgPQ";
@@ -28,6 +29,83 @@ interface InteractiveMapProps {
   onMapLoad?: (map: mapboxgl.Map) => void;
 }
 
+// Simple map component that doesn't require Mapbox
+const SimpleMap = ({ 
+  center, 
+  zoom, 
+  povertyData,
+  height 
+}: InteractiveMapProps) => {
+  // Calculate the size of dots based on the poverty index
+  const getDotSize = (povertyIndex: number) => {
+    return 6 + povertyIndex * 6; // 6-12px based on poverty index
+  };
+
+  // Get color based on poverty index
+  const getDotColor = (povertyIndex: number) => {
+    if (povertyIndex < 0.3) return "bg-green-500";
+    if (povertyIndex < 0.6) return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
+  // Calculate position based on Pakistan's map boundaries
+  const getPosition = (lat: number, lng: number) => {
+    // Pakistan approximate boundaries
+    const minLat = 23.5; // southernmost point
+    const maxLat = 37.0; // northernmost point
+    const minLng = 60.5; // westernmost point
+    const maxLng = 77.0; // easternmost point
+    
+    // Calculate position percentage
+    const latPercent = ((lat - minLat) / (maxLat - minLat)) * 100;
+    const lngPercent = ((lng - minLng) / (maxLng - minLng)) * 100;
+    
+    return {
+      top: `${100 - latPercent}%`,
+      left: `${lngPercent}%`,
+    };
+  };
+
+  return (
+    <div className="relative w-full h-full overflow-hidden border rounded-lg bg-slate-100">
+      {/* Pakistan outline map background */}
+      <div className="absolute inset-0 bg-contain bg-center bg-no-repeat opacity-20"
+        style={{backgroundImage: `url("https://upload.wikimedia.org/wikipedia/commons/3/3e/Pakistan_%28orthographic_projection%29.svg")`}}
+      />
+      
+      {/* Render poverty data points */}
+      {povertyData && povertyData.map((point, index) => {
+        const position = getPosition(point.lat, point.lng);
+        const dotSize = getDotSize(point.povertyIndex);
+        const dotColor = getDotColor(point.povertyIndex);
+        
+        return (
+          <div
+            key={index}
+            className={`absolute rounded-full ${dotColor} opacity-70`}
+            style={{
+              top: position.top,
+              left: position.left,
+              width: `${dotSize}px`,
+              height: `${dotSize}px`,
+              transform: 'translate(-50%, -50%)',
+            }}
+            title={`Poverty Index: ${(point.povertyIndex * 100).toFixed(0)}%`}
+          />
+        );
+      })}
+      
+      {/* Map info */}
+      <div className="absolute bottom-4 left-4 bg-background/80 backdrop-blur-sm p-2 rounded-md text-xs z-10">
+        <div className="flex items-center gap-1">
+          <MapPin className="h-3 w-3" />
+          <span>Simple map view (Mapbox alternative)</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const InteractiveMap = ({
   center = { lat: 30.3753, lng: 69.3451 }, // Pakistan center
   zoom = 5,
@@ -44,6 +122,7 @@ export const InteractiveMap = ({
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tempToken, setTempToken] = useState(mapboxToken);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [useSimpleMap, setUseSimpleMap] = useState(false);
 
   const initializeMap = () => {
     if (!mapContainer.current) return;
@@ -159,7 +238,12 @@ export const InteractiveMap = ({
   };
 
   useEffect(() => {
-    initializeMap();
+    if (!useSimpleMap) {
+      initializeMap();
+    } else {
+      setLoading(false);
+      setMapError(null);
+    }
     
     return () => {
       // Properly cleanup the map to avoid "indoor" property error
@@ -184,7 +268,7 @@ export const InteractiveMap = ({
         map.current = null;
       }
     };
-  }, [mapboxToken, center, zoom]);
+  }, [mapboxToken, center, zoom, useSimpleMap]);
 
   // Add poverty data as a heatmap layer
   const addPovertyHeatmap = (mapInstance: mapboxgl.Map, povertyData: any[]) => {
@@ -321,28 +405,40 @@ export const InteractiveMap = ({
 
   return (
     <div className="w-full h-full relative" style={{ minHeight: height }}>
-      {loading && (
+      {loading && !useSimpleMap && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
           <Skeleton className="h-full w-full" />
         </div>
       )}
       
-      {mapError && (
+      {mapError && !useSimpleMap && (
         <div className="absolute inset-0 flex items-center justify-center z-20 bg-background/80 backdrop-blur-sm">
           <div className="bg-card p-4 rounded-lg shadow-lg max-w-md w-full">
             <h3 className="text-lg font-medium mb-2">Map Error</h3>
             <p className="text-destructive mb-4">{mapError}</p>
-            <Button 
-              onClick={() => setShowTokenInput(true)}
-              className="w-full"
-            >
-              Update Mapbox Token
-            </Button>
+            <div className="flex flex-col space-y-3">
+              <Button 
+                onClick={() => setShowTokenInput(true)}
+                className="w-full"
+              >
+                Update Mapbox Token
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setUseSimpleMap(true);
+                  setMapError(null);
+                }}
+                className="w-full"
+              >
+                Use Simple Map Instead
+              </Button>
+            </div>
           </div>
         </div>
       )}
       
-      {showTokenInput && (
+      {showTokenInput && !useSimpleMap && (
         <div className="absolute inset-0 flex items-center justify-center z-30 bg-background/80 backdrop-blur-sm">
           <div className="bg-card p-4 rounded-lg shadow-lg max-w-md w-full">
             <h3 className="text-lg font-medium mb-2">Enter Mapbox Token</h3>
@@ -358,7 +454,12 @@ export const InteractiveMap = ({
             <div className="flex space-x-2">
               <Button 
                 variant="outline" 
-                onClick={() => setShowTokenInput(false)}
+                onClick={() => {
+                  setShowTokenInput(false);
+                  if (mapError) {
+                    setUseSimpleMap(true);
+                  }
+                }}
                 className="flex-1"
               >
                 Cancel
@@ -370,12 +471,44 @@ export const InteractiveMap = ({
                 Update Token
               </Button>
             </div>
+            <div className="mt-4 pt-3 border-t">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setUseSimpleMap(true);
+                  setShowTokenInput(false);
+                }}
+                className="w-full flex items-center justify-center text-sm"
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                Switch to Simple Map (No token needed)
+              </Button>
+            </div>
           </div>
         </div>
       )}
       
-      <div ref={mapContainer} className="w-full h-full rounded-lg"></div>
+      {useSimpleMap ? (
+        <div className="w-full h-full">
+          <SimpleMap center={center} zoom={zoom} povertyData={povertyData} height={height} />
+          
+          <div className="absolute top-3 right-3 z-10">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setUseSimpleMap(false);
+                initializeMap();
+              }}
+              className="text-xs"
+            >
+              Try Mapbox
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div ref={mapContainer} className="w-full h-full rounded-lg"></div>
+      )}
     </div>
   );
 };
-
