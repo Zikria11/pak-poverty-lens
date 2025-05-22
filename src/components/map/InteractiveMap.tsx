@@ -4,10 +4,12 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
-// Temporary mapbox token - in production this should be in environment variables
-// This is a public token that can be safely included in the codebase
-const MAPBOX_TOKEN = "pk.eyJ1IjoibHVtZW5tYXAiLCJhIjoiY2pqcjJodmN5YXozMDN2bnZoNDRoaTJrMiJ9.2R8CSUqL8b5HI7SiZBVgPQ";
+// Default mapbox token
+const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1IjoibHVtZW5tYXAiLCJhIjoiY2pqcjJodmN5YXozMDN2bnZoNDRoaTJrMiJ9.2R8CSUqL8b5HI7SiZBVgPQ";
 
 export interface MapLocation {
   lat: number;
@@ -36,93 +38,132 @@ export const InteractiveMap = ({
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mapboxToken, setMapboxToken] = useState(() => {
+    return localStorage.getItem("mapbox_token") || DEFAULT_MAPBOX_TOKEN;
+  });
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [tempToken, setTempToken] = useState(mapboxToken);
+  const [mapError, setMapError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Initialize Mapbox
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-
+  const initializeMap = () => {
     if (!mapContainer.current) return;
-
-    const mapInstance = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: [center.lng, center.lat],
-      zoom: zoom,
-      pitch: 40,
-      bearing: 0,
-      projection: { name: 'mercator' }
-    });
-
-    mapInstance.addControl(new mapboxgl.NavigationControl(), "top-right");
-    mapInstance.addControl(new mapboxgl.FullscreenControl());
-    mapInstance.addControl(new mapboxgl.GeolocateControl({
-      positionOptions: {
-        enableHighAccuracy: true
-      },
-      trackUserLocation: true
-    }));
-
-    map.current = mapInstance;
     
-    mapInstance.on("load", () => {
-      setLoading(false);
-      
-      // Add custom data layer for poverty heatmap
-      if (povertyData.length > 0) {
-        addPovertyHeatmap(mapInstance, povertyData);
-      }
-      
-      if (onMapLoad) {
-        onMapLoad(mapInstance);
-      }
-    });
-    
-    // Add the satellite toggle control
-    class SatelliteToggleControl {
-      private map: mapboxgl.Map;
-      private container: HTMLDivElement;
-      private satelliteMode: boolean;
-      
-      constructor() {
-        this.satelliteMode = false;
-      }
-      
-      onAdd(map: mapboxgl.Map) {
-        this.map = map;
-        this.container = document.createElement('div');
-        this.container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
-        
-        const button = document.createElement('button');
-        button.className = 'satellite-toggle';
-        button.textContent = 'Satellite';
-        button.style.padding = '6px 10px';
-        
-        button.addEventListener('click', () => {
-          this.satelliteMode = !this.satelliteMode;
-          if (this.satelliteMode) {
-            map.setStyle('mapbox://styles/mapbox/satellite-streets-v12');
-            button.textContent = 'Streets';
-          } else {
-            map.setStyle('mapbox://styles/mapbox/streets-v12');
-            button.textContent = 'Satellite';
-          }
-        });
-        
-        this.container.appendChild(button);
-        return this.container;
-      }
-      
-      onRemove() {
-        this.container.parentNode?.removeChild(this.container);
-      }
+    // Clear any existing map
+    if (map.current) {
+      map.current.remove();
     }
     
-    mapInstance.addControl(new SatelliteToggleControl(), 'top-right');
+    setLoading(true);
+    setMapError(null);
+    
+    try {
+      // Initialize Mapbox with the token
+      mapboxgl.accessToken = mapboxToken;
 
+      const mapInstance = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [center.lng, center.lat],
+        zoom: zoom,
+        pitch: 40,
+        bearing: 0,
+        projection: { name: 'mercator' }
+      });
+
+      mapInstance.addControl(new mapboxgl.NavigationControl(), "top-right");
+      mapInstance.addControl(new mapboxgl.FullscreenControl());
+      mapInstance.addControl(new mapboxgl.GeolocateControl({
+        positionOptions: {
+          enableHighAccuracy: true
+        },
+        trackUserLocation: true
+      }));
+
+      map.current = mapInstance;
+      
+      mapInstance.on("load", () => {
+        setLoading(false);
+        
+        // Add custom data layer for poverty heatmap
+        if (povertyData.length > 0) {
+          addPovertyHeatmap(mapInstance, povertyData);
+        }
+        
+        if (onMapLoad) {
+          onMapLoad(mapInstance);
+        }
+        
+        // Save working token to localStorage
+        localStorage.setItem("mapbox_token", mapboxToken);
+      });
+      
+      // Add the satellite toggle control
+      class SatelliteToggleControl {
+        private map: mapboxgl.Map;
+        private container: HTMLDivElement;
+        private satelliteMode: boolean;
+        
+        constructor() {
+          this.satelliteMode = false;
+        }
+        
+        onAdd(map: mapboxgl.Map) {
+          this.map = map;
+          this.container = document.createElement('div');
+          this.container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+          
+          const button = document.createElement('button');
+          button.className = 'satellite-toggle';
+          button.textContent = 'Satellite';
+          button.style.padding = '6px 10px';
+          
+          button.addEventListener('click', () => {
+            this.satelliteMode = !this.satelliteMode;
+            if (this.satelliteMode) {
+              map.setStyle('mapbox://styles/mapbox/satellite-streets-v12');
+              button.textContent = 'Streets';
+            } else {
+              map.setStyle('mapbox://styles/mapbox/streets-v12');
+              button.textContent = 'Satellite';
+            }
+          });
+          
+          this.container.appendChild(button);
+          return this.container;
+        }
+        
+        onRemove() {
+          this.container.parentNode?.removeChild(this.container);
+        }
+      }
+      
+      mapInstance.addControl(new SatelliteToggleControl(), 'top-right');
+      
+      // Error handling
+      mapInstance.on('error', (e) => {
+        console.error('Mapbox error:', e);
+        if (e.error?.status === 401) {
+          setMapError("Invalid Mapbox token. Please update your token.");
+          setShowTokenInput(true);
+        }
+      });
+    } catch (error) {
+      console.error("Failed to initialize map:", error);
+      setMapError("Failed to initialize map. Please try updating your Mapbox token.");
+      setShowTokenInput(true);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    initializeMap();
+    
     return () => {
-      mapInstance.remove();
+      if (map.current) {
+        map.current.remove();
+      }
     };
-  }, [center, zoom]);
+  }, [mapboxToken, center, zoom]);
 
   // Add poverty data as a heatmap layer
   const addPovertyHeatmap = (mapInstance: mapboxgl.Map, povertyData: any[]) => {
@@ -140,6 +181,17 @@ export const InteractiveMap = ({
         }
       }))
     };
+
+    // Check if source already exists and remove it
+    if (mapInstance.getSource("poverty-data")) {
+      if (mapInstance.getLayer("poverty-heat")) {
+        mapInstance.removeLayer("poverty-heat");
+      }
+      if (mapInstance.getLayer("poverty-point")) {
+        mapInstance.removeLayer("poverty-point");
+      }
+      mapInstance.removeSource("poverty-data");
+    }
 
     // Add source
     mapInstance.addSource("poverty-data", {
@@ -237,6 +289,15 @@ export const InteractiveMap = ({
     });
   };
 
+  const handleUpdateToken = () => {
+    if (tempToken && tempToken !== mapboxToken) {
+      setMapboxToken(tempToken);
+      localStorage.setItem("mapbox_token", tempToken);
+      toast.success("Mapbox token updated");
+    }
+    setShowTokenInput(false);
+  };
+
   return (
     <div className="w-full h-full relative" style={{ minHeight: height }}>
       {loading && (
@@ -244,6 +305,54 @@ export const InteractiveMap = ({
           <Skeleton className="h-full w-full" />
         </div>
       )}
+      
+      {mapError && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 bg-background/80 backdrop-blur-sm">
+          <div className="bg-card p-4 rounded-lg shadow-lg max-w-md w-full">
+            <h3 className="text-lg font-medium mb-2">Map Error</h3>
+            <p className="text-destructive mb-4">{mapError}</p>
+            <Button 
+              onClick={() => setShowTokenInput(true)}
+              className="w-full"
+            >
+              Update Mapbox Token
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      {showTokenInput && (
+        <div className="absolute inset-0 flex items-center justify-center z-30 bg-background/80 backdrop-blur-sm">
+          <div className="bg-card p-4 rounded-lg shadow-lg max-w-md w-full">
+            <h3 className="text-lg font-medium mb-2">Enter Mapbox Token</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Get your token from <a href="https://account.mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-primary underline">mapbox.com</a>
+            </p>
+            <Input 
+              value={tempToken} 
+              onChange={(e) => setTempToken(e.target.value)}
+              placeholder="Enter your Mapbox token"
+              className="mb-4"
+            />
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowTokenInput(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateToken}
+                className="flex-1"
+              >
+                Update Token
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div ref={mapContainer} className="w-full h-full rounded-lg"></div>
     </div>
   );
