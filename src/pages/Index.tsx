@@ -29,7 +29,8 @@ const Index = () => {
           <StatsCards />
         </section>
 
-        <section id="poverty-map">
+        <section id="poverty-map" className="mb-8">
+          <h2 className="text-xl font-semibold mb-3">Poverty Heatmap (1km² Grid Resolution)</h2>
           <PovertyMap />
         </section>
 
