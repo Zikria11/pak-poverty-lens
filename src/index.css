@@ -94,6 +94,19 @@
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
+  
+  .mapboxgl-map {
+    @apply rounded-lg;
+  }
+  
+  .mapboxgl-ctrl-group button {
+    @apply border-0;
+  }
+  
+  /* Custom styled legend */
+  .map-legend {
+    @apply bg-background/70 backdrop-blur-sm p-2 rounded-md shadow-sm;
+  }
 }
 
 @layer components {
@@ -103,14 +116,14 @@
   }
   
   .poverty-high {
-    @apply bg-poverty-high text-white;
+    @apply bg-red-500 text-white;
   }
   
   .poverty-medium {
-    @apply bg-poverty-medium text-black;
+    @apply bg-yellow-500 text-black;
   }
   
   .poverty-low {
-    @apply bg-poverty-low text-white;
+    @apply bg-green-500 text-white;
   }
 }
